@@ -19,9 +19,16 @@
   <a href="https://talentflow-hr-kappa.vercel.app">🌐 Live Demo</a> ·
   <a href="#-what-is-talentflow-hr">About</a> ·
   <a href="#-feature-tour">Features</a> ·
+  <a href="#-screenshots">Screenshots</a> ·
   <a href="#-getting-started">Get Started</a> ·
   <a href="#-deploy-on-vercel">Deploy</a> ·
   <a href="#-tech-stack">Stack</a>
+
+---
+
+<p align="center">
+  <img src="public/screenshots/dashboard.png" alt="TalentFlow HR Dashboard" width="900">
+</p>
 </p>
 
 ---
@@ -226,7 +233,52 @@ src/
 
 ## 📸 Screenshots
 
-> Coming soon — drop screenshots into `public/screenshots/` and reference them here.
+### Overview Dashboard
+KPIs, monthly placements trend, candidates-by-technology distribution, and live activity feed.
+
+![Overview Dashboard](public/screenshots/dashboard.png)
+
+### Candidate Pipeline (Kanban)
+Six-stage drag-and-drop pipeline. Filter by technology, experience, or client. Card moves persist instantly.
+
+![Candidate Pipeline](public/screenshots/pipeline.png)
+
+### Job Requisitions
+Sortable, searchable table of every open client requirement. The "New Requirement" modal includes a one-click "Draft with AI" button.
+
+![Job Requisitions](public/screenshots/jobs.png)
+
+### Client Management
+Industry-tagged client cards with tier, active requirements, placements, account manager, and inline-expandable open roles.
+
+![Clients](public/screenshots/clients.png)
+
+### Interview Tracker
+List view (shown) plus a color-coded calendar view. Mark Pass / Reject / Hold per row, or draft AI feedback notes inline.
+
+![Interview Tracker](public/screenshots/interviews.png)
+
+### Analytics & Reports
+Placements by industry, time-to-fill per tech, source distribution, revenue split (Staffing / Consulting / Training), and a recruiter performance leaderboard.
+
+![Analytics](public/screenshots/analytics.png)
+
+### Training (HTD) Tracker
+Live Hire → Train → Deploy pipeline with per-batch progress bars and deployment-ready status.
+
+![Training](public/screenshots/training.png)
+
+### Recruiter Team
+Profile grid with active requisitions, pipeline size, and placements this month.
+
+![Team](public/screenshots/team.png)
+
+### Settings — AI Assistant
+Pick Ollama / Cloud API / Off, test the connection, manage demo data. Keys live only in your browser's localStorage.
+
+![Settings](public/screenshots/settings.png)
+
+> Regenerate any time with `node scripts/screenshots.mjs` while `npm run dev` is running.
 
 ---
 
