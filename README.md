@@ -232,7 +232,7 @@ src/
 
 ## 📄 License
 
-MIT — see [LICENSE](LICENSE) (add one if you intend to make this a template for others).
+[MIT](LICENSE) © 2026 — free to use, fork, modify, and distribute. Attribution appreciated but not required.
 
 ---
 
