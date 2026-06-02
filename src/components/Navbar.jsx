@@ -80,10 +80,10 @@ export default function Navbar({ onToggleSidebar }) {
           </button>
           <div className="flex items-center gap-2 pl-2 ml-1 border-l border-navy-700">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent-blue to-accent-teal text-white text-xs font-bold flex items-center justify-center">
-              RV
+              DU
             </div>
             <div className="hidden sm:block leading-tight">
-              <div className="text-sm font-medium text-white">Ravi Deghun</div>
+              <div className="text-sm font-medium text-white">Demo User</div>
               <div className="text-[11px] text-slate-400">Admin</div>
             </div>
           </div>
