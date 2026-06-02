@@ -1,9 +1,10 @@
-import { Search, Bell, Plus, Menu, Sparkles } from 'lucide-react'
+import { Search, Bell, Plus, Menu, Sparkles, HelpCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { loadSettings, statusLabel } from '../lib/aiSettings'
 import SearchPalette from './SearchPalette'
 import NotificationsDropdown from './NotificationsDropdown'
+import HelpDialog from './HelpDialog'
 
 const titleMap = {
   '/': { title: 'Overview', subtitle: 'Your staffing & consulting cockpit at a glance' },
@@ -27,6 +28,15 @@ const NEW_LABEL = {
   '/training': 'Batch',
 }
 
+const NEW_TARGET = {
+  '/': '/pipeline',
+  '/pipeline': '/pipeline',
+  '/jobs': '/jobs',
+  '/interviews': '/interviews',
+  '/clients': '/clients',
+  '/training': '/training',
+}
+
 const TONE = {
   teal: 'bg-accent-teal/15 text-accent-teal border-accent-teal/30',
   blue: 'bg-accent-blue/15 text-accent-blue border-accent-blue/30',
@@ -43,6 +53,7 @@ export default function Navbar({ onToggleSidebar }) {
   const [aiStatus, setAiStatus] = useState(() => statusLabel(loadSettings()))
   const [searchOpen, setSearchOpen] = useState(false)
   const [bellOpen, setBellOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const bellRef = useRef(null)
 
   useEffect(() => {
@@ -61,25 +72,19 @@ export default function Navbar({ onToggleSidebar }) {
         e.preventDefault()
         setSearchOpen(o => !o)
       }
+      if (e.key === '?' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) {
+        e.preventDefault()
+        setHelpOpen(o => !o)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   const handleNew = () => {
-    // Pages that support inline creation listen for this event.
-    // For pages without a creator, navigate somewhere sensible.
-    const creators = { '/': '/pipeline', '/pipeline': '/pipeline', '/jobs': '/jobs', '/interviews': '/interviews' }
-    const target = creators[pathname]
-    if (target) {
-      if (target !== pathname) nav(target)
-      // Dispatch after navigation so listeners are mounted
-      setTimeout(() => window.dispatchEvent(new CustomEvent('talentflow:new', { detail: { path: target } })), 50)
-    } else {
-      // Fall back to pipeline (most common "+ New")
-      nav('/pipeline')
-      setTimeout(() => window.dispatchEvent(new CustomEvent('talentflow:new', { detail: { path: '/pipeline' } })), 50)
-    }
+    const target = NEW_TARGET[pathname] || '/pipeline'
+    if (target !== pathname) nav(target)
+    setTimeout(() => window.dispatchEvent(new CustomEvent('talentflow:new', { detail: { path: target } })), 60)
   }
 
   return (
@@ -116,6 +121,14 @@ export default function Navbar({ onToggleSidebar }) {
             <Sparkles className="w-3.5 h-3.5" />
             <span className="normal-case tracking-normal max-w-[14ch] truncate">{aiStatus.label}</span>
           </Link>
+          <button
+            onClick={() => setHelpOpen(true)}
+            title="Keyboard shortcuts (press ?)"
+            aria-label="Help"
+            className="hidden md:inline-flex p-2 rounded-lg bg-navy-800/70 border border-navy-700 hover:border-accent-blue/40 text-slate-300 transition"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
           <div className="relative">
             <button
               ref={bellRef}
@@ -144,6 +157,7 @@ export default function Navbar({ onToggleSidebar }) {
         </div>
       </div>
       <SearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     </header>
   )
 }
