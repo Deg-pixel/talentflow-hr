@@ -92,6 +92,9 @@ Visual **Hire → Train → Deploy** pipeline at the top with live counts. Below
 ### 👤 Recruiter Team Module
 Profile cards for every recruiter with role, email, active requisitions, current pipeline size, placements this month, and join date. Built for quick workload-balancing decisions.
 
+### 🔐 Sign In / Sign Up
+Polished login screen with email + password, a Sign Up tab, and four one-click **"Try the demo"** profile presets (Demo Admin, Recruitment Lead, Account Manager, Recruiter). All client-side — no backend, no real authentication; state is stored in your browser's localStorage and cleared on sign-out. Use it as a pretty entry point or as a starting point for wiring real auth later.
+
 ### ⚙️ Settings — AI Assistant
 - Pick **Ollama (local, free)**, **Cloud API**, or **Off**
 - Cloud providers: **OpenAI**, **Anthropic Claude**, **Google Gemini**, or any **custom OpenAI-compatible** endpoint
