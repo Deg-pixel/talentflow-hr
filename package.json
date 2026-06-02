@@ -1,8 +1,27 @@
 {
-  "name": "hr",
+  "name": "talentflow-hr",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "Modern dark-themed HR dashboard for IT staffing & consulting firms with kanban pipeline, requisitions, interviews, analytics, and a pluggable AI assistant (Ollama / OpenAI / Anthropic / Gemini) with offline template fallback.",
+  "license": "MIT",
+  "homepage": "https://talentflow-hr-kappa.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Deg-pixel/talentflow-hr.git"
+  },
+  "keywords": [
+    "hr-dashboard",
+    "ats",
+    "kanban",
+    "recruiting",
+    "staffing",
+    "react",
+    "vite",
+    "tailwindcss",
+    "ollama",
+    "ai-assistant"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
