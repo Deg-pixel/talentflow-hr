@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { Briefcase, MapPin, GripVertical } from 'lucide-react'
 
@@ -9,22 +10,48 @@ const techColors = {
   Cybersecurity: 'bg-accent-rose/15 text-accent-rose border-accent-rose/30',
 }
 
-export default function CandidateCard({ candidate }) {
+export default function CandidateCard({ candidate, onOpen }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: candidate.id,
     data: { stage: candidate.stage },
   })
 
+  const downRef = useRef(null)
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined
+
+  // dnd-kit suppresses synthetic click events. Track pointer down/up positions ourselves
+  // and treat a near-stationary release as a "click" to open the detail modal.
+  const handlePointerDown = (e) => {
+    downRef.current = { x: e.clientX, y: e.clientY, t: Date.now() }
+    listeners?.onPointerDown?.(e)
+  }
+  const handlePointerUp = (e) => {
+    const d = downRef.current
+    downRef.current = null
+    if (d && !isDragging) {
+      const dx = Math.abs(e.clientX - d.x)
+      const dy = Math.abs(e.clientY - d.y)
+      if (dx < 4 && dy < 4 && Date.now() - d.t < 500) {
+        onOpen?.(candidate)
+      }
+    }
+    listeners?.onPointerUp?.(e)
+  }
+
+  // Spread everything except onPointerDown/Up which we override
+  const { onPointerDown, onPointerUp, ...restListeners } = listeners || {}
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
+      {...restListeners}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onClick={(e) => { if (!isDragging) onOpen?.(candidate) }}
       className={`group bg-navy-800/80 border border-navy-700/60 rounded-lg p-3 cursor-grab active:cursor-grabbing select-none transition-all ${
         isDragging ? 'opacity-50 scale-105 shadow-glow-blue' : 'hover:border-accent-blue/40'
       }`}

@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
 import { candidates as seedCandidates, STAGES, techStacks } from '../data/candidates'
 import CandidateCard from '../components/CandidateCard'
+import CandidateDetail from '../components/CandidateDetail'
 import { usePersistedState } from '../lib/storage'
-import { Filter, X } from 'lucide-react'
+import { Filter, X, Plus } from 'lucide-react'
 
 const STAGE_HUES = {
   sourced: 'border-slate-500/40 text-slate-300 bg-slate-500/10',
@@ -14,7 +15,7 @@ const STAGE_HUES = {
   rejected: 'border-accent-rose/40 text-accent-rose bg-accent-rose/10',
 }
 
-function Column({ stage, candidates }) {
+function Column({ stage, candidates, onAdd, onOpen }) {
   const { isOver, setNodeRef } = useDroppable({ id: stage.id })
   return (
     <div
@@ -27,14 +28,26 @@ function Column({ stage, candidates }) {
         <div className="flex items-center gap-2">
           <span className={`badge border ${STAGE_HUES[stage.id]}`}>{stage.name}</span>
         </div>
-        <span className="text-xs text-slate-400 font-mono">{candidates.length}</span>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-slate-400 font-mono">{candidates.length}</span>
+          <button
+            onClick={() => onAdd(stage.id)}
+            title={`Add candidate to ${stage.name}`}
+            className="p-1 rounded hover:bg-navy-700 text-slate-400 hover:text-accent-blue transition"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
       <div className="p-2 space-y-2 overflow-y-auto flex-1">
-        {candidates.map(c => <CandidateCard key={c.id} candidate={c} />)}
+        {candidates.map(c => <CandidateCard key={c.id} candidate={c} onOpen={onOpen} />)}
         {candidates.length === 0 && (
-          <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-navy-700 rounded-lg">
-            Drop here
-          </div>
+          <button
+            onClick={() => onAdd(stage.id)}
+            className="w-full p-6 text-center text-xs text-slate-500 border border-dashed border-navy-700 rounded-lg hover:border-accent-blue/40 hover:text-accent-blue transition"
+          >
+            Drop here or click to add
+          </button>
         )}
       </div>
     </div>
@@ -47,10 +60,11 @@ export default function Pipeline() {
   const [filterTech, setFilterTech] = useState('')
   const [filterExp, setFilterExp] = useState('')
   const [filterClient, setFilterClient] = useState('')
+  const [modal, setModal] = useState({ open: false, mode: 'view', candidate: null })
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
-  const clientOptions = useMemo(() => [...new Set(seedCandidates.map(c => c.client))], [])
+  const clientOptions = useMemo(() => [...new Set(items.map(c => c.client).filter(Boolean))], [items])
 
   const filtered = useMemo(() => items.filter(c => {
     if (filterTech && c.tech !== filterTech) return false
@@ -65,12 +79,36 @@ export default function Pipeline() {
     setActiveId(null)
     const { active, over } = e
     if (!over) return
-    const targetStage = over.id
-    setItems(prev => prev.map(c => c.id === active.id ? { ...c, stage: targetStage } : c))
+    setItems(prev => prev.map(c => c.id === active.id ? { ...c, stage: over.id } : c))
+  }
+
+  const handleAdd = (stage = 'sourced') => {
+    setModal({ open: true, mode: 'create', candidate: { stage } })
+  }
+  const handleOpen = (candidate) => {
+    setModal({ open: true, mode: 'view', candidate })
+  }
+
+  // Listen for navbar "+ New" event
+  useEffect(() => {
+    const onNew = (e) => { if (e.detail?.entity === 'candidate' || e.detail?.path === '/pipeline') handleAdd() }
+    window.addEventListener('talentflow:new', onNew)
+    return () => window.removeEventListener('talentflow:new', onNew)
+  }, [])
+
+  const handleSave = (next) => {
+    setItems(prev => {
+      const i = prev.findIndex(c => c.id === next.id)
+      if (i === -1) return [next, ...prev]
+      const out = [...prev]; out[i] = next; return out
+    })
+    setModal({ open: false, mode: 'view', candidate: null })
+  }
+  const handleDelete = (id) => {
+    setItems(prev => prev.filter(c => c.id !== id))
   }
 
   const activeCandidate = items.find(c => c.id === activeId)
-
   const clearFilters = () => { setFilterTech(''); setFilterExp(''); setFilterClient('') }
   const hasFilters = filterTech || filterExp || filterClient
 
@@ -100,7 +138,10 @@ export default function Pipeline() {
             <X className="w-3.5 h-3.5" /> Clear
           </button>
         )}
-        <div className="ml-auto text-xs text-slate-400">
+        <button onClick={() => handleAdd()} className="btn-primary !py-1.5 ml-auto">
+          <Plus className="w-3.5 h-3.5" /> Add Candidate
+        </button>
+        <div className="text-xs text-slate-400 w-full sm:w-auto">
           Showing <span className="text-white font-semibold">{filtered.length}</span> of {items.length}
         </div>
       </div>
@@ -117,6 +158,8 @@ export default function Pipeline() {
               key={stage.id}
               stage={stage}
               candidates={filtered.filter(c => c.stage === stage.id)}
+              onAdd={handleAdd}
+              onOpen={handleOpen}
             />
           ))}
         </div>
@@ -124,6 +167,16 @@ export default function Pipeline() {
           {activeCandidate ? <CandidateCard candidate={activeCandidate} /> : null}
         </DragOverlay>
       </DndContext>
+
+      <CandidateDetail
+        open={modal.open}
+        mode={modal.mode}
+        candidate={modal.candidate}
+        clients={clientOptions}
+        onClose={() => setModal({ open: false, mode: 'view', candidate: null })}
+        onSave={handleSave}
+        onDelete={handleDelete}
+      />
     </div>
   )
 }

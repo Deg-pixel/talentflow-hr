@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { jobs as seedJobs } from '../data/jobs'
 import { usePersistedState } from '../lib/storage'
 import { generateJobDescription, AI_MODE_LABEL } from '../lib/aiClient'
-import { Search, Plus, X, AlertTriangle, Clock, ChevronUp, ChevronDown, Sparkles, Loader2 } from 'lucide-react'
+import Modal, { Field } from '../components/Modal'
+import { Search, Plus, AlertTriangle, Clock, ChevronUp, ChevronDown, Sparkles, Loader2, Briefcase, Trash2 } from 'lucide-react'
 
 const STATUS_BADGE = {
   Open: 'bg-accent-blue/15 text-accent-blue border-accent-blue/30',
@@ -16,6 +17,8 @@ const PRIORITY_HUE = {
   Low: 'text-slate-400',
 }
 
+const blankJob = { client: '', role: '', skills: '', experience: '', location: '', recruiter: '', priority: 'Medium', positions: 1, description: '', status: 'Open' }
+
 export default function JobRequisitions() {
   const [jobs, setJobs] = usePersistedState('jobs', seedJobs)
   const [search, setSearch] = useState('')
@@ -24,11 +27,12 @@ export default function JobRequisitions() {
   const [sortKey, setSortKey] = useState('postedOn')
   const [sortDir, setSortDir] = useState('desc')
   const [modalOpen, setModalOpen] = useState(false)
-  const [form, setForm] = useState({ client: '', role: '', skills: '', experience: '', location: '', recruiter: '', priority: 'Medium', positions: 1, description: '' })
+  const [editingId, setEditingId] = useState(null)
+  const [form, setForm] = useState(blankJob)
   const [aiBusy, setAiBusy] = useState(false)
   const [aiError, setAiError] = useState('')
 
-  const clientOptions = useMemo(() => [...new Set(seedJobs.map(j => j.client))], [])
+  const clientOptions = useMemo(() => [...new Set([...seedJobs, ...jobs].map(j => j.client))], [jobs])
 
   const filtered = useMemo(() => {
     let list = jobs.filter(j => {
@@ -36,7 +40,7 @@ export default function JobRequisitions() {
       if (clientFilter && j.client !== clientFilter) return false
       if (search) {
         const q = search.toLowerCase()
-        if (!j.role.toLowerCase().includes(q) && !j.skills.join(' ').toLowerCase().includes(q) && !j.client.toLowerCase().includes(q) && !j.id.toLowerCase().includes(q)) return false
+        if (!j.role.toLowerCase().includes(q) && !(j.skills || []).join(' ').toLowerCase().includes(q) && !j.client.toLowerCase().includes(q) && !j.id.toLowerCase().includes(q)) return false
       }
       return true
     })
@@ -64,45 +68,54 @@ export default function JobRequisitions() {
     </th>
   )
 
+  const openCreate = () => {
+    setForm(blankJob); setEditingId(null); setAiError(''); setModalOpen(true)
+  }
+  const openEdit = (job) => {
+    setForm({ ...job, skills: Array.isArray(job.skills) ? job.skills.join(', ') : (job.skills || '') })
+    setEditingId(job.id); setAiError(''); setModalOpen(true)
+  }
+
+  // Listen for navbar "+ New" event
+  useEffect(() => {
+    const onNew = (e) => { if (e.detail?.entity === 'job' || e.detail?.path === '/jobs') openCreate() }
+    window.addEventListener('talentflow:new', onNew)
+    return () => window.removeEventListener('talentflow:new', onNew)
+  }, [])
+
   const submitJob = (e) => {
     e.preventDefault()
-    const newJob = {
-      id: `JR-${2053 + jobs.length}`,
-      client: form.client || 'Cognizant',
-      role: form.role,
-      skills: form.skills.split(',').map(s => s.trim()).filter(Boolean),
-      experience: form.experience,
-      location: form.location,
-      postedOn: new Date().toISOString().slice(0, 10),
-      status: 'Open',
-      recruiter: form.recruiter,
-      positions: Number(form.positions),
-      priority: form.priority,
-      description: form.description,
+    const skillsArr = (form.skills || '').toString().split(',').map(s => s.trim()).filter(Boolean)
+    if (editingId) {
+      setJobs(prev => prev.map(j => j.id === editingId ? { ...j, ...form, skills: skillsArr, positions: Number(form.positions) } : j))
+    } else {
+      const id = `JR-${2053 + jobs.length}`
+      setJobs([{ ...blankJob, ...form, id, skills: skillsArr, positions: Number(form.positions), postedOn: new Date().toISOString().slice(0, 10) }, ...jobs])
     }
-    setJobs([newJob, ...jobs])
-    setForm({ client: '', role: '', skills: '', experience: '', location: '', recruiter: '', priority: 'Medium', positions: 1, description: '' })
-    setAiError('')
+    setForm(blankJob); setEditingId(null); setModalOpen(false)
+  }
+  const deleteJob = () => {
+    if (!editingId) return
+    if (!confirm('Delete this requirement?')) return
+    setJobs(prev => prev.filter(j => j.id !== editingId))
     setModalOpen(false)
   }
 
+  const cycleStatus = (job) => {
+    const order = ['Open', 'Filled', 'On Hold']
+    const next = order[(order.indexOf(job.status) + 1) % order.length]
+    setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: next } : j))
+  }
+
   const draftWithAI = async () => {
-    setAiBusy(true)
-    setAiError('')
+    setAiBusy(true); setAiError('')
     try {
       const text = await generateJobDescription({
-        role: form.role,
-        skills: form.skills.split(',').map(s => s.trim()).filter(Boolean),
-        experience: form.experience,
-        location: form.location,
-        client: form.client,
+        role: form.role, skills: (form.skills || '').toString().split(',').map(s => s.trim()).filter(Boolean),
+        experience: form.experience, location: form.location, client: form.client,
       })
       setForm(f => ({ ...f, description: text }))
-    } catch (err) {
-      setAiError(err.message || 'AI draft failed')
-    } finally {
-      setAiBusy(false)
-    }
+    } catch (err) { setAiError(err.message || 'AI draft failed') } finally { setAiBusy(false) }
   }
 
   return (
@@ -127,7 +140,7 @@ export default function JobRequisitions() {
           <option value="">All Clients</option>
           {clientOptions.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <button className="btn-primary" onClick={() => setModalOpen(true)}>
+        <button className="btn-primary" onClick={openCreate}>
           <Plus className="w-4 h-4" /> New Requirement
         </button>
       </div>
@@ -150,7 +163,7 @@ export default function JobRequisitions() {
             </thead>
             <tbody>
               {filtered.map(job => (
-                <tr key={job.id} className="table-row">
+                <tr key={job.id} className="table-row cursor-pointer" onClick={() => openEdit(job)}>
                   <td className="px-4 py-3 text-sm font-mono text-accent-blue">{job.id}</td>
                   <td className="px-4 py-3 text-sm text-white font-medium">{job.client}</td>
                   <td className="px-4 py-3 text-sm text-slate-200">
@@ -162,7 +175,7 @@ export default function JobRequisitions() {
                   </td>
                   <td className="px-4 py-3 text-xs">
                     <div className="flex flex-wrap gap-1">
-                      {job.skills.map(s => (
+                      {(job.skills || []).map(s => (
                         <span key={s} className="badge bg-navy-700/60 text-slate-300 border border-navy-600">{s}</span>
                       ))}
                     </div>
@@ -172,7 +185,9 @@ export default function JobRequisitions() {
                   <td className="px-4 py-3 text-xs text-slate-400 inline-flex items-center gap-1">
                     <Clock className="w-3 h-3" />{job.postedOn}
                   </td>
-                  <td className="px-4 py-3"><span className={`badge border ${STATUS_BADGE[job.status]}`}>{job.status}</span></td>
+                  <td className="px-4 py-3" onClick={(e) => { e.stopPropagation(); cycleStatus(job) }}>
+                    <button title="Click to change status" className={`badge border ${STATUS_BADGE[job.status]} hover:brightness-125 transition`}>{job.status}</button>
+                  </td>
                   <td className="px-4 py-3 text-sm text-slate-300">{job.recruiter}</td>
                 </tr>
               ))}
@@ -184,84 +199,69 @@ export default function JobRequisitions() {
         </div>
       </div>
 
-      {modalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setModalOpen(false)}>
-          <form onClick={e => e.stopPropagation()} onSubmit={submitJob} className="card max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">New Job Requirement</h2>
-              <button type="button" onClick={() => setModalOpen(false)} className="p-1 rounded hover:bg-navy-700 text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        icon={Briefcase}
+        title={editingId ? `Edit ${editingId}` : 'New Job Requirement'}
+        subtitle={editingId ? form.role : 'Add a new client requirement to the pipeline'}
+        size="lg"
+        footer={
+          <>
+            {editingId && <button type="button" onClick={deleteJob} className="btn-secondary text-accent-rose mr-auto"><Trash2 className="w-4 h-4" /> Delete</button>}
+            <button type="button" className="btn-secondary" onClick={() => setModalOpen(false)}>Cancel</button>
+            <button form="job-form" className="btn-primary" type="submit">{editingId ? 'Save Changes' : 'Create Requirement'}</button>
+          </>
+        }
+      >
+        <form id="job-form" onSubmit={submitJob} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Client" required>
+            <select className="input" value={form.client} onChange={e => setForm({ ...form, client: e.target.value })} required>
+              <option value="">Select…</option>
+              {clientOptions.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="Role" required>
+            <input className="input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} required placeholder="e.g. SAP MM Consultant" />
+          </Field>
+          <Field label="Skills (comma separated)" full>
+            <input className="input" value={form.skills} onChange={e => setForm({ ...form, skills: e.target.value })} placeholder="SAP MM, ABAP, S/4HANA" />
+          </Field>
+          <Field label="Experience">
+            <input className="input" value={form.experience} onChange={e => setForm({ ...form, experience: e.target.value })} placeholder="5-8 yrs" />
+          </Field>
+          <Field label="Location">
+            <input className="input" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Bengaluru" />
+          </Field>
+          <Field label="Assigned Recruiter">
+            <input className="input" value={form.recruiter} onChange={e => setForm({ ...form, recruiter: e.target.value })} placeholder="Anjali Verma" />
+          </Field>
+          <Field label="Positions">
+            <input type="number" min="1" className="input" value={form.positions} onChange={e => setForm({ ...form, positions: e.target.value })} />
+          </Field>
+          <Field label="Priority">
+            <select className="input" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}>
+              <option>High</option><option>Medium</option><option>Low</option>
+            </select>
+          </Field>
+          <Field label="Status">
+            <select className="input" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+              <option>Open</option><option>Filled</option><option>On Hold</option>
+            </select>
+          </Field>
+          <div className="sm:col-span-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs text-slate-400 font-medium">Job Description</span>
+              <button type="button" onClick={draftWithAI} disabled={aiBusy || !form.role} title={!form.role ? 'Enter a role first' : `Draft with ${AI_MODE_LABEL()}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-accent-blue/15 hover:bg-accent-blue/25 text-accent-blue border border-accent-blue/30 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                {aiBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                Draft with AI
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Client" required>
-                <select className="input" value={form.client} onChange={e => setForm({ ...form, client: e.target.value })} required>
-                  <option value="">Select…</option>
-                  {clientOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </Field>
-              <Field label="Role" required>
-                <input className="input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} required placeholder="e.g. SAP MM Consultant" />
-              </Field>
-              <Field label="Skills (comma separated)" full>
-                <input className="input" value={form.skills} onChange={e => setForm({ ...form, skills: e.target.value })} placeholder="SAP MM, ABAP, S/4HANA" />
-              </Field>
-              <Field label="Experience">
-                <input className="input" value={form.experience} onChange={e => setForm({ ...form, experience: e.target.value })} placeholder="5-8 yrs" />
-              </Field>
-              <Field label="Location">
-                <input className="input" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Bengaluru" />
-              </Field>
-              <Field label="Assigned Recruiter">
-                <input className="input" value={form.recruiter} onChange={e => setForm({ ...form, recruiter: e.target.value })} placeholder="Anjali Verma" />
-              </Field>
-              <Field label="Positions">
-                <input type="number" min="1" className="input" value={form.positions} onChange={e => setForm({ ...form, positions: e.target.value })} />
-              </Field>
-              <Field label="Priority" full>
-                <select className="input" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}>
-                  <option>High</option><option>Medium</option><option>Low</option>
-                </select>
-              </Field>
-              <div className="col-span-2">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs text-slate-400 font-medium">Job Description</span>
-                  <button
-                    type="button"
-                    onClick={draftWithAI}
-                    disabled={aiBusy || !form.role}
-                    title={!form.role ? 'Enter a role first' : `Draft with ${AI_MODE_LABEL()}`}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-accent-blue/15 hover:bg-accent-blue/25 text-accent-blue border border-accent-blue/30 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                  >
-                    {aiBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                    Draft with AI
-                  </button>
-                </div>
-                <textarea
-                  className="input min-h-[140px] font-mono text-xs leading-relaxed"
-                  value={form.description}
-                  onChange={e => setForm({ ...form, description: e.target.value })}
-                  placeholder="Optional. Click 'Draft with AI' or write your own."
-                />
-                {aiError && <p className="text-[11px] text-accent-rose mt-1">{aiError}</p>}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button type="button" className="btn-secondary" onClick={() => setModalOpen(false)}>Cancel</button>
-              <button className="btn-primary" type="submit">Create Requirement</button>
-            </div>
-          </form>
-        </div>
-      )}
+            <textarea className="input min-h-[140px] font-mono text-xs leading-relaxed" value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Optional. Click 'Draft with AI' or write your own." />
+            {aiError && <p className="text-[11px] text-accent-rose mt-1">{aiError}</p>}
+          </div>
+        </form>
+      </Modal>
     </div>
-  )
-}
-
-function Field({ label, required, full, children }) {
-  return (
-    <label className={`block ${full ? 'col-span-2' : ''}`}>
-      <span className="block text-xs text-slate-400 mb-1">{label} {required && <span className="text-accent-rose">*</span>}</span>
-      {children}
-    </label>
   )
 }

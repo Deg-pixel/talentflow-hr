@@ -1,12 +1,16 @@
+import { useState } from 'react'
 import { recruiters } from '../data/trainings'
+import RecruiterDetail from '../components/RecruiterDetail'
 import { Mail, Briefcase, Users as UsersIcon, Award, Calendar } from 'lucide-react'
 
 export default function Team() {
+  const [selected, setSelected] = useState(null)
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {recruiters.map(r => (
-          <div key={r.id} className="card card-hover p-5 animate-fade-in">
+          <button key={r.id} onClick={() => setSelected(r)} className="text-left card card-hover p-5 animate-fade-in cursor-pointer">
             <div className="flex items-start gap-3">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent-blue to-accent-teal text-white text-sm font-bold flex items-center justify-center shadow-glow-blue">
                 {r.avatar}
@@ -27,11 +31,12 @@ export default function Team() {
 
             <div className="mt-4 pt-3 border-t border-navy-700/60 flex items-center justify-between text-[11px] text-slate-400">
               <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" /> Joined {r.joinedOn}</span>
-              <button className="text-accent-blue hover:underline">View profile →</button>
+              <span className="text-accent-blue">View profile →</span>
             </div>
-          </div>
+          </button>
         ))}
       </div>
+      <RecruiterDetail open={!!selected} recruiter={selected} onClose={() => setSelected(null)} />
     </div>
   )
 }

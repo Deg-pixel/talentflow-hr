@@ -1,7 +1,9 @@
 import { Search, Bell, Plus, Menu, Sparkles } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { loadSettings, statusLabel } from '../lib/aiSettings'
+import SearchPalette from './SearchPalette'
+import NotificationsDropdown from './NotificationsDropdown'
 
 const titleMap = {
   '/': { title: 'Overview', subtitle: 'Your staffing & consulting cockpit at a glance' },
@@ -15,6 +17,16 @@ const titleMap = {
   '/settings': { title: 'Settings', subtitle: 'Configure AI provider, API keys, and Ollama' },
 }
 
+const NEW_LABEL = {
+  '/': 'Candidate',
+  '/pipeline': 'Candidate',
+  '/jobs': 'Requirement',
+  '/interviews': 'Interview',
+  '/clients': 'Client',
+  '/team': 'Recruiter',
+  '/training': 'Batch',
+}
+
 const TONE = {
   teal: 'bg-accent-teal/15 text-accent-teal border-accent-teal/30',
   blue: 'bg-accent-blue/15 text-accent-blue border-accent-blue/30',
@@ -24,8 +36,15 @@ const TONE = {
 
 export default function Navbar({ onToggleSidebar }) {
   const { pathname } = useLocation()
+  const nav = useNavigate()
   const meta = titleMap[pathname] || { title: 'TalentFlow HR', subtitle: '' }
+  const newLabel = NEW_LABEL[pathname] || 'Item'
+
   const [aiStatus, setAiStatus] = useState(() => statusLabel(loadSettings()))
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [bellOpen, setBellOpen] = useState(false)
+  const bellRef = useRef(null)
+
   useEffect(() => {
     const sync = () => setAiStatus(statusLabel(loadSettings()))
     window.addEventListener('talentflow:ai-settings-changed', sync)
@@ -35,6 +54,33 @@ export default function Navbar({ onToggleSidebar }) {
       window.removeEventListener('storage', sync)
     }
   }, [])
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setSearchOpen(o => !o)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const handleNew = () => {
+    // Pages that support inline creation listen for this event.
+    // For pages without a creator, navigate somewhere sensible.
+    const creators = { '/': '/pipeline', '/pipeline': '/pipeline', '/jobs': '/jobs', '/interviews': '/interviews' }
+    const target = creators[pathname]
+    if (target) {
+      if (target !== pathname) nav(target)
+      // Dispatch after navigation so listeners are mounted
+      setTimeout(() => window.dispatchEvent(new CustomEvent('talentflow:new', { detail: { path: target } })), 50)
+    } else {
+      // Fall back to pipeline (most common "+ New")
+      nav('/pipeline')
+      setTimeout(() => window.dispatchEvent(new CustomEvent('talentflow:new', { detail: { path: '/pipeline' } })), 50)
+    }
+  }
 
   return (
     <header className="sticky top-0 z-20 bg-navy-900/80 backdrop-blur border-b border-navy-700/60">
@@ -54,14 +100,14 @@ export default function Navbar({ onToggleSidebar }) {
         </div>
 
         <div className="flex items-center gap-2 md:gap-3">
-          <div className="hidden md:flex items-center gap-2 bg-navy-800/70 border border-navy-700 rounded-lg px-3 py-1.5 w-72">
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="hidden md:flex items-center gap-2 bg-navy-800/70 border border-navy-700 hover:border-accent-blue/40 rounded-lg px-3 py-1.5 w-72 transition"
+          >
             <Search className="w-4 h-4 text-slate-500" />
-            <input
-              placeholder="Search candidates, jobs, clients…"
-              className="bg-transparent text-sm outline-none w-full placeholder-slate-500 text-slate-200"
-            />
+            <span className="bg-transparent text-sm w-full text-left text-slate-500">Search candidates, jobs, clients…</span>
             <kbd className="hidden lg:inline text-[10px] text-slate-500 border border-navy-600 rounded px-1.5 py-0.5">⌘K</kbd>
-          </div>
+          </button>
           <Link
             to="/settings"
             title="AI provider settings"
@@ -70,13 +116,21 @@ export default function Navbar({ onToggleSidebar }) {
             <Sparkles className="w-3.5 h-3.5" />
             <span className="normal-case tracking-normal max-w-[14ch] truncate">{aiStatus.label}</span>
           </Link>
-          <button className="relative p-2 rounded-lg bg-navy-800/70 border border-navy-700 hover:border-accent-blue/40 transition">
-            <Bell className="w-4 h-4 text-slate-300" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-accent-teal animate-pulse" />
-          </button>
-          <button className="btn-primary !py-1.5">
+          <div className="relative">
+            <button
+              ref={bellRef}
+              onClick={() => setBellOpen(o => !o)}
+              className={`relative p-2 rounded-lg bg-navy-800/70 border transition ${bellOpen ? 'border-accent-blue/60' : 'border-navy-700 hover:border-accent-blue/40'}`}
+              aria-label="Notifications"
+            >
+              <Bell className="w-4 h-4 text-slate-300" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-accent-teal animate-pulse" />
+            </button>
+            <NotificationsDropdown open={bellOpen} anchorRef={bellRef} onClose={() => setBellOpen(false)} />
+          </div>
+          <button onClick={handleNew} title={`Add new ${newLabel.toLowerCase()}`} className="btn-primary !py-1.5">
             <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">New</span>
+            <span className="hidden sm:inline">New {newLabel}</span>
           </button>
           <div className="flex items-center gap-2 pl-2 ml-1 border-l border-navy-700">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent-blue to-accent-teal text-white text-xs font-bold flex items-center justify-center">
@@ -89,6 +143,7 @@ export default function Navbar({ onToggleSidebar }) {
           </div>
         </div>
       </div>
+      <SearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
     </header>
   )
 }
