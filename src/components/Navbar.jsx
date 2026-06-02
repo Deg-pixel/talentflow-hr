@@ -1,7 +1,8 @@
-import { Search, Bell, Plus, Menu, Sparkles, HelpCircle } from 'lucide-react'
+import { Search, Bell, Plus, Menu, Sparkles, HelpCircle, LogOut, Settings as SettingsIcon, User as UserIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { loadSettings, statusLabel } from '../lib/aiSettings'
+import { useAuth, signOut } from '../lib/auth'
 import SearchPalette from './SearchPalette'
 import NotificationsDropdown from './NotificationsDropdown'
 import HelpDialog from './HelpDialog'
@@ -54,7 +55,10 @@ export default function Navbar({ onToggleSidebar }) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [bellOpen, setBellOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const bellRef = useRef(null)
+  const menuRef = useRef(null)
+  const user = useAuth()
 
   useEffect(() => {
     const sync = () => setAiStatus(statusLabel(loadSettings()))
@@ -145,19 +149,64 @@ export default function Navbar({ onToggleSidebar }) {
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">New {newLabel}</span>
           </button>
-          <div className="flex items-center gap-2 pl-2 ml-1 border-l border-navy-700">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent-blue to-accent-teal text-white text-xs font-bold flex items-center justify-center">
-              DU
-            </div>
-            <div className="hidden sm:block leading-tight">
-              <div className="text-sm font-medium text-white">Demo User</div>
-              <div className="text-[11px] text-slate-400">Admin</div>
-            </div>
+          <div className="relative pl-2 ml-1 border-l border-navy-700">
+            <button
+              ref={menuRef}
+              onClick={() => setMenuOpen(o => !o)}
+              className="flex items-center gap-2 rounded-lg hover:bg-navy-700/40 px-1 py-1 transition"
+              aria-label="Account menu"
+            >
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent-blue to-accent-teal text-white text-xs font-bold flex items-center justify-center">
+                {user?.avatar || 'DU'}
+              </div>
+              <div className="hidden sm:block leading-tight text-left">
+                <div className="text-sm font-medium text-white truncate max-w-[10ch]">{user?.name || 'Demo User'}</div>
+                <div className="text-[11px] text-slate-400 truncate max-w-[12ch]">{user?.role || 'Member'}</div>
+              </div>
+            </button>
+            <AccountMenu open={menuOpen} anchorRef={menuRef} onClose={() => setMenuOpen(false)} user={user} onLogout={() => { signOut(); nav('/login', { replace: true }) }} />
           </div>
         </div>
       </div>
       <SearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
       <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     </header>
+  )
+}
+
+function AccountMenu({ open, anchorRef, onClose, user, onLogout }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target) && !anchorRef?.current?.contains(e.target)) onClose?.()
+    }
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.() }
+    window.addEventListener('mousedown', onClick)
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('mousedown', onClick); window.removeEventListener('keydown', onKey) }
+  }, [open, onClose, anchorRef])
+  if (!open) return null
+  return (
+    <div ref={ref} className="absolute top-full right-0 mt-2 w-60 card border border-navy-700/80 shadow-2xl z-40 animate-fade-in overflow-hidden">
+      <div className="p-3 border-b border-navy-700/60 bg-navy-900/40">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent-blue to-accent-teal text-white text-xs font-bold flex items-center justify-center">{user?.avatar || 'DU'}</div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white truncate">{user?.name || 'Demo User'}</p>
+            <p className="text-[11px] text-slate-400 truncate">{user?.email || '—'}</p>
+          </div>
+        </div>
+        <div className="mt-2 inline-flex items-center gap-1.5 badge bg-accent-teal/15 text-accent-teal border border-accent-teal/30 text-[10px]">
+          {user?.role || 'Member'}{user?.isDemo && ' · Demo'}
+        </div>
+      </div>
+      <Link to="/settings" onClick={onClose} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-navy-700/40 transition">
+        <SettingsIcon className="w-4 h-4 text-slate-500" /> Settings
+      </Link>
+      <button onClick={() => { onClose(); onLogout?.() }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-accent-rose hover:bg-accent-rose/10 transition">
+        <LogOut className="w-4 h-4" /> Sign out
+      </button>
+    </div>
   )
 }

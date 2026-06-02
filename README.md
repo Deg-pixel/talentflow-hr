@@ -233,6 +233,11 @@ src/
 
 ## 📸 Screenshots
 
+### Sign In
+Client-side auth with email + password (any 6-char string works), Sign Up tab, and four "Try the demo" profile presets. Auth state lives only in your browser.
+
+![Sign In](public/screenshots/login.png)
+
 ### Overview Dashboard
 KPIs, monthly placements trend, candidates-by-technology distribution, and live activity feed.
 

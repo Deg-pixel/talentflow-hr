@@ -21,6 +21,7 @@ const BASE = process.env.SCREENSHOT_BASE || 'http://localhost:5173'
 const VIEWPORT = { width: 1440, height: 900 }
 
 const PAGES = [
+  { slug: 'login', path: '/login', waitFor: 'h2:has-text("Welcome back")', clearAuth: true },
   { slug: 'dashboard', path: '/', waitFor: 'h3:has-text("Monthly Placements")' },
   { slug: 'pipeline', path: '/pipeline', waitFor: 'span.badge:has-text("Sourced")' },
   { slug: 'jobs', path: '/jobs', waitFor: 'th:has-text("Job ID")' },
@@ -45,15 +46,28 @@ async function main() {
   })
   const page = await ctx.newPage()
 
-  // Pre-warm: set localStorage so the demo banner is dismissed and AI shows Ollama
-  await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' })
+  // Pre-warm: set localStorage so the demo banner is dismissed, auth is set, AI shows Ollama
+  await page.goto(BASE + '/login', { waitUntil: 'domcontentloaded' })
   await page.evaluate(() => {
     sessionStorage.setItem('talentflow.banner-dismissed', '1')
-    // ensure a clean seed
     Object.keys(localStorage).filter(k => k.startsWith('talentflow.v1.')).forEach(k => localStorage.removeItem(k))
+    localStorage.setItem('talentflow.auth.user', JSON.stringify({
+      name: 'Demo Admin', email: 'admin@talentflow.demo', role: 'Admin', avatar: 'DA',
+      signedInAt: '2026-06-03T00:00:00.000Z', isDemo: true,
+    }))
   })
 
   for (const p of PAGES) {
+    if (p.clearAuth) {
+      await page.evaluate(() => localStorage.removeItem('talentflow.auth.user'))
+    } else {
+      await page.evaluate(() => {
+        localStorage.setItem('talentflow.auth.user', JSON.stringify({
+          name: 'Demo Admin', email: 'admin@talentflow.demo', role: 'Admin', avatar: 'DA',
+          signedInAt: '2026-06-03T00:00:00.000Z', isDemo: true,
+        }))
+      })
+    }
     const url = BASE + p.path
     console.log(`→ ${url}`)
     await page.goto(url, { waitUntil: 'networkidle' })
